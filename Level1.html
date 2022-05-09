@@ -1,0 +1,634 @@
+<html>
+<head>
+	<title>Armored Combat Level 1</title>
+	<script type="text/javascript" src="js/libs/jquery/jquery-2.1.4.min.js"></script>
+	<script type="text/javascript" src="js/libs/three/three.js"></script>
+	<script type="text/javascript" src="js/libs/three/MTLLoader.js"></script>
+	<script type="text/javascript" src="js/libs/three/OBJLoader.js"></script>
+	<script type="text/javascript" src="js/libs/three/FBXLoader.js"></script>
+	<script type="text/javascript">
+		
+	var scene;
+	var camara;
+	var player;
+	var Boundary;
+	var BoxScn;
+	var boxClone;
+	var players = [];
+    var playerDead = false;
+	var balas= [];
+	var renderer;
+	var renders = [];
+	var controls;
+	var objects = [];
+	var clock;
+	var deltaTime;	
+	var keys = {};
+	var yaw = [];
+	var forward = [];
+
+    var lastimar = true;
+    var tiempolastimar = 1;
+    var tiempoTranslastimar = 0;
+
+    var Pause = false;
+
+    var ScnMaterial=new THREE.MeshPhongMaterial({
+                color: new THREE.Color(0.7,0.5,1),
+                specular: new THREE.Color(1,1,1),
+                shininess: 500
+            });
+
+	var itemDamage = [];
+	var itemHeal = [];
+    var itemVel = [];
+
+	var duracionEntreDisparos = 6;
+	var contadorEntreDisparos = [];
+	var puedoDisparar = [];
+
+    var see = [];
+	var itemHealMaterial=new THREE.MeshPhongMaterial({
+		color: new THREE.Color(0,1,0),
+		specular: new THREE.Color(1,1,1),
+		shininess: 500
+	})
+	var itemDamageMaterial=new THREE.MeshPhongMaterial({
+		color: new THREE.Color(1,0,0),
+		specular: new THREE.Color(1,1,1),
+		shininess: 500
+	})
+    var itemVelMaterial=new THREE.MeshPhongMaterial({
+		color: new THREE.Color(0.2,0,0.2),
+		specular: new THREE.Color(1,1,1),
+		shininess: 500
+	})
+
+	$(document).ready(function() {
+		
+        setupScene();
+		render();
+
+		document.addEventListener('keydown', onKeyDown);
+		document.addEventListener('keyup', onKeyUp);		
+	});
+
+	function loadOBJWithMTL(path, objFile, mtlFile, onLoadCallback) {
+		var mtlLoader = new THREE.MTLLoader();
+		mtlLoader.setPath(path);
+		mtlLoader.load(mtlFile, (materials) => {
+			
+			var objLoader = new THREE.OBJLoader();
+			objLoader.setMaterials(materials);
+			objLoader.setPath(path);
+			objLoader.load(objFile, (object) => {
+				onLoadCallback(object);
+			});
+
+		});
+	}
+
+	function onKeyDown(event) {
+		keys[String.fromCharCode(event.keyCode)] = true;
+	}
+	function onKeyUp(event) {
+		keys[String.fromCharCode(event.keyCode)] = false;
+	}
+
+	function calculateDistance(pos1x, pos1z, pos2x, pos2z)
+	{
+		return Math.sqrt((pos2x - pos1x)*(pos2x - pos1x) + (pos2z-pos1z)*(pos2z-pos1z));
+	}
+
+
+	function render() {
+        requestAnimationFrame(render);
+		deltaTime = clock.getDelta();
+
+		if(players.alive === 1)
+		{
+			console.log("Congratulations");
+		}
+        if(playerDead)
+        {
+            console.log("Game Over");
+        }
+		
+		//INICIACION EN 0 DEL YAW Y FOWARD
+		for(var i = 0; i < players.length; i++)
+		{
+			yaw[i] = 0;
+			forward[i] = 0;
+		}
+
+		//TECLAS DEL JUGADOR 1
+		if (keys["A"]) {
+			yaw[0] = players[0].rotvel;
+		} else if (keys["D"]) {
+			yaw[0] = -players[0].rotvel;
+		}
+		if (keys["W"]) {
+			forward[0] = players[0].vel;
+		} else if (keys["S"]) {
+			forward[0] = -players[0].vel;
+		} else if (keys["E"]){
+			if(puedoDisparar[0])
+			{
+				disparar(players[0],0);
+			}
+		}
+		
+		if (puedoDisparar[0] == false) {
+				contadorEntreDisparos[0] += deltaTime;
+				if (contadorEntreDisparos[0] > 1) {
+					contadorEntreDisparos[0] = 0;
+					puedoDisparar[0] = true
+				}
+		}
+
+        if(!(lastimar))
+        {
+            tiempoTranslastimar += deltaTime;
+            if(tiempoTranslastimar > tiempolastimar)
+            {
+                tiempoTranslastimar = 0;
+                lastimar = true;
+            }
+        }
+		
+		//MOVIMIENTO Y ROTACION DE LOS JUGADORES
+		if(!(Pause))
+        {
+            for(var i = 0; i < players.length; i++)
+            {
+                if(!(players[i].isDead))
+                {
+                    players[i].rotation.y += yaw[i] * deltaTime;
+                    players[i].translateZ(forward[i] * deltaTime);
+                    for(var j = 1; j < players.length; j++)
+                    {
+                        if(!(players[j].isDead))
+                        {
+                            var distancia = calculateDistance(players[0].position.x, players[0].position.z, players[j].position.x, players[j].position.z)
+                            if(distancia < 15)
+                            {
+                                see[j] = true;
+                            }
+                            if(see[j])
+                            {
+                                players[j].lookAt(players[0].position);
+                                players[j].translateZ(3 * deltaTime);
+                                if(puedoDisparar[j])
+                                {
+                                    disparar(players[j],j);
+
+                                }
+                                if (puedoDisparar[j] == false) {
+				                    contadorEntreDisparos[j] += deltaTime;
+                                        if (contadorEntreDisparos[j] > duracionEntreDisparos) {
+                                            contadorEntreDisparos[j] = 0;
+                                            puedoDisparar[j] = true
+                                        }
+                                }
+                            }
+                            if(j!=0)
+                            {
+                                var fBB = new THREE.Box3().setFromObject(players[0]);
+                                var sBB = new THREE.Box3().setFromObject(players[j]);
+
+                                var collis = fBB.intersectsBox(sBB);
+
+                                if(collis)
+                                {
+                                    if(lastimar){
+                                        console.log("HIT");
+                                        players[0].translateZ((forward[i]*-10) * deltaTime);
+                                        players[0].life = players[0].life - 1;
+                                        if(players[0].life < 1)
+                                        {
+                                            playerDead = true;
+                                        }
+                                        players[j].translateZ((forward[i]*-10) * deltaTime);
+                                        lastimar = false;
+                                    }
+                                }
+                                else
+                                {
+                                    players[i].col = false;
+                                    players[j].col = false;
+                                }
+                            }
+                        }
+                    }
+                    if(players[i].position.z>45||players[i].position.z<-45||players[i].position.x>45||players[i].position.x<-45)
+                    {
+                        players[i].translateZ((forward[i]*-1) * deltaTime);
+                    }
+
+                    for(var h = 0;h < objects.length; h++)
+                    {
+                        if(objects[h].alive)
+                        {
+                            var firstBB = new THREE.Box3().setFromObject(players[i]);
+
+                            var secondBB = new THREE.Box3().setFromObject(objects[h]);
+
+                            var collision = firstBB.intersectsBox(secondBB);
+
+                            if(collision)
+                            {
+                                if(i === 0)
+                                {
+                                    players[i].translateZ((forward[i]*-1) * deltaTime);
+                                }
+                                else{
+                                    objects[h].alive = false;
+                                    scene.remove(objects[h]);
+                                    players[i].translateZ((-100) * deltaTime);
+                                }
+                            }
+                        }   
+                    }
+                    for(var h = 0;h < itemDamage.length; h++)
+                    {
+                        if(i === 0)
+                        {
+                            if(itemDamage[h].alive)
+                            {
+                                var firstBB = new THREE.Box3().setFromObject(players[i]);
+
+                                var secondBB = new THREE.Box3().setFromObject(itemDamage[h]);
+
+                                var collision = firstBB.intersectsBox(secondBB);
+
+                                if(collision)
+                                {
+                                    console.log("hititem");
+                                    players[i].damage = 3;
+                                    itemDamage[h].alive = false;
+                                    scene.remove(itemDamage[h]);
+                                }
+                            }
+                        }
+                    }
+                    for(var h = 0;h < itemHeal.length; h++)
+                    {
+                        if(i === 0)
+                        {
+                            if(itemHeal[h].alive)
+                        {
+                            var firstBB = new THREE.Box3().setFromObject(players[i]);
+
+                            var secondBB = new THREE.Box3().setFromObject(itemHeal[h]);
+
+                            var collision = firstBB.intersectsBox(secondBB);
+
+                            if(collision)
+                            {
+                                players[i].life = players[i].life + 2;
+                                if(players[i].life > 5)
+                                {
+                                    players[i].life = 5;
+                                }
+                                console.log(players[i].life);
+                                itemHeal[h].alive = false;
+                                scene.remove(itemHeal[h]);
+                            }
+                        }
+                        }
+                    }
+                    for(var h = 0;h < itemVel.length; h++)
+                    {
+                        if(i === 0)
+                        {
+                            if(itemVel[h].alive)
+                            {
+                                var firstBB = new THREE.Box3().setFromObject(players[i]);
+
+                                var secondBB = new THREE.Box3().setFromObject(itemVel[h]);
+
+                                var collision = firstBB.intersectsBox(secondBB);
+
+                                if(collision)
+                                {
+                                    console.log("hititem");
+                                    players[i].vel = 30;
+                                    //players[i].rotvel = 10;
+                                    itemVel[h].alive = false;
+                                    scene.remove(itemVel[h]);
+                                }
+                            }
+                        }
+                    }
+                }
+                else if(!(players[i].hasremoved))
+                {
+                    console.log("a player has dead");
+                    players.alive = players.alive - 1;
+                    players[i].hasremoved = true;
+                    scene.remove(players[i]);
+                }
+            }
+
+            //TRAYECTO Y TIEMPO DE DESAPARICION DE LA BALA
+            for (var i = 0; i < balas.length; i++)
+            {
+                if(balas[i].alive)//SI LA BALA SIGUE EN JUEGO
+                {
+                    if(balas[i].ini)//AQUI HAGO QUE LA BALA EMPIECE UNOS PIXELES ADELANTE PARA QUE NO COLISIONE CON EL PROPIETARIO DE LA BALA
+                    {
+                        balas[i].translateZ((20 * deltaTime) + 7);
+                        balas[i].ini = false;//ESTO ES PARA QUE ESE +7 SOLO SE APLIQUE AL INICIO
+                    }
+                    else{
+                        balas[i].translateZ(20 * deltaTime);
+                    }
+                
+                    var firstBB = new THREE.Box3().setFromObject(balas[i]);
+
+                    //COLISION DE LA BALA CON JUGADORES
+                    for (j = 0; j < players.length; j++)
+                    {
+                        if(!(players[j].isDead))
+                        {
+                            var thridBB = new THREE.Box3().setFromObject(players[j]);
+
+                            var col_player = firstBB.intersectsBox(thridBB);
+
+                            if(col_player)
+                            {
+
+                                ScnMaterial.color.set(0xFF0000);
+                                players[j].life = players[j].life - balas[i].damage;
+                                if(players[j].life < 1)//VER SI EL JUGADOR A MUERTO
+                                {
+                                    players[j].isDead = true;
+                                }
+                                console.log(players[j].life)
+                                balas[i].alive=false;
+                                scene.remove(balas[i]);
+                            }
+                        }
+                    }
+                    //COLISION DE LA BALA CON OTROS OBJETOS
+                    for(var h = 0;h < objects.length; h++)
+                    {
+                        if(objects[h].alive)
+                        {
+                            var secondBB = new THREE.Box3().setFromObject(objects[h]);
+
+                            var collision = firstBB.intersectsBox(secondBB);
+
+                            if(collision)
+                            {
+                                ScnMaterial.color.set(0xFF0000);
+                                objects[h].life -= balas[i].damage;
+                                console.log(objects[h].life);
+                                if(objects[h].life === 0)
+                                {
+                                    objects[h].alive = false;
+                                    scene.remove(objects[h]);
+                                }
+                                balas[i].alive=false;
+                                scene.remove(balas[i])
+                            }
+                            else
+                            {
+                                ScnMaterial.color.set(0x0000FF);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+		renderer.render(scene, camara);
+	}
+
+	function createObject(posX, posY, posZ,tipodeObj){
+        if(tipodeObj === 0){//item de curar
+            loadOBJWithMTL("assets/Heal/", "heal.obj", "heal.mtl",(ObjT) => {
+
+                ObjT.position.x = posX;
+                ObjT.position.y = posY;
+                ObjT.position.z = posZ;
+     
+                ObjT.alive = true;
+                itemHeal.push(ObjT);
+
+                scene.add(ObjT);
+            })
+        }
+        else if(tipodeObj === 1){//item de daño
+            loadOBJWithMTL("assets/Damage/", "damage.obj", "damage.mtl",(ObjT) => {
+                
+                ObjT.position.x = posX;
+                ObjT.position.y = posY;
+                ObjT.position.z = posZ;
+
+                ObjT.alive = true;
+                itemDamage.push(ObjT);
+
+                scene.add(ObjT);
+            })
+        }
+        else if(tipodeObj === 2){//item de velocidad
+            loadOBJWithMTL("assets/Vel/", "vel.obj", "vel.mtl",(ObjT) => {
+                
+                ObjT.position.x = posX;
+                ObjT.position.y = posY;
+                ObjT.position.z = posZ;
+
+                ObjT.alive = true;
+                itemVel.push(ObjT);
+
+                scene.add(ObjT);
+            })
+        }
+        else if(tipodeObj === 3){//bloques
+            
+            const width = 5;  // ui: width
+		    const height = 5;  // ui: height
+		    const depth = 5;  // ui: depth
+		    const geometry = new THREE.BoxGeometry(width, height, depth);
+
+            var ScnMat=new THREE.MeshPhongMaterial({
+                color: new THREE.Color(0.7,0.5,0.3),
+                specular: new THREE.Color(1,1,1),
+                shininess: 500
+            });
+
+			ObjT= new THREE.Mesh(geometry,ScnMat);
+
+            ObjT.position.x = posX;
+            ObjT.position.y = posY;
+            ObjT.position.z = posZ;
+
+            ObjT.alive = true;
+
+            ObjT.life = 2;
+
+            objects.push(ObjT);
+
+            scene.add(ObjT);
+        }
+	}
+
+	//FUNCION DE CREAR JUGADOR
+	function createplayer(rojo, verde, azul, posX, posY, posZ,name){
+
+		//AQUI SERIA LO DE CARGAR MODELO EN VEZ DE LA GEOMETRIA
+		loadOBJWithMTL("assets/tank/", "Tank.obj", "Tank.mtl", (playerT) => {
+			playerT.life = 5;
+			playerT.isDead = false;
+			playerT.hasremoved = false;
+			playerT.damage = 1;
+            playerT.vel = 20
+            playerT.rotvel = 5;
+
+            var contadis = 0;
+            var puededis= true;
+
+            contadorEntreDisparos.push(contadis);
+            puedoDisparar.push(puededis);
+
+			playerT.position.z = posZ;
+			playerT.position.y = posY;
+			playerT.position.x = posX;
+			playerT.rotation.y = (180*3.14159)/180;
+
+            var seeplayer = false
+
+            see.push(seeplayer);
+
+			scene.add(playerT);
+			players.push(playerT);
+			yaw.push(0);
+			forward.push(0);
+
+			players.alive = players.alive + 1;
+
+			//isWorldReady[0] = true;
+		});
+	}
+
+	var balaGeo = new THREE.SphereGeometry(0.5,4,20);
+		var material = new THREE.MeshLambertMaterial({color: new THREE.Color(0.0, 0.5, 0.0)});
+		var balaModel = new THREE.Mesh(balaGeo, material);
+
+	function disparar(playerT, i){
+		
+		var bala= balaModel.clone();
+
+		bala.damage = playerT.damage;
+		
+		bala.position.y = playerT.position.y;
+		bala.position.x = playerT.position.x;
+		bala.position.z = playerT.position.z;
+
+		bala.rotation.y = playerT.rotation.y;
+		bala.rotation.x = playerT.rotation.x;
+		bala.rotation.z = playerT.rotation.z;
+
+		bala.alive=true;
+
+		bala.jugador = playerT;
+
+		bala.deltaTime = deltaTime;
+
+		bala.ini = true;
+
+		balas.push(bala);
+		scene.add(bala);
+
+		puedoDisparar[i]=false;
+	}
+
+	function setupScene() {		
+		var visibleSize = { width: window.innerWidth, height: window.innerHeight};
+		clock = new THREE.Clock();		
+		scene = new THREE.Scene();
+		camara = new THREE.PerspectiveCamera(75, visibleSize.width / visibleSize.height, 0.1, 100);
+
+		//POSICION DE LA CAMARA
+		camara.position.y = 70;
+		camara.position.x = 0;
+		camara.position.z = 0;
+
+		//ROTACION HACIA ABAJO DE LA CAMARA (CONVERTIDO A GRADOS)
+		camara.rotation.x = (-90*3.14159)/180;
+
+		renderer = new THREE.WebGLRenderer( {precision: "mediump" } );
+		renderer.setClearColor(new THREE.Color(0, 0, 0));
+		renderer.setPixelRatio(visibleSize.width / visibleSize.height);
+		renderer.setSize(visibleSize.width, visibleSize.height);
+
+		var ambientLight = new THREE.AmbientLight(new THREE.Color(1, 1, 1), 1.0);
+		scene.add(ambientLight);
+
+		var directionalLight = new THREE.DirectionalLight(new THREE.Color(1, 1, 0), 0.4);
+		directionalLight.position.set(0, 0, 1);
+		scene.add(directionalLight);
+
+		var grid = new THREE.GridHelper(50, 10, 0xffffff, 0xffffff);
+		grid.position.y = -1;
+		scene.add(grid);
+
+            //aqui creamos los items y bloques el ultimo digito determina que tipo de objeto es
+            createObject(0,0,0,3); //el numero 3 es para bloques
+
+            createObject(15,0,-9,1);//el 1 para item de daño
+
+            createObject(-15,0,9,0);//el 0 para item de curacion
+
+            createObject(-20,0,9,2);//el 2 para item de velocidad
+			
+		const PlGeom = new THREE.PlaneGeometry( 500, 500,1,1 );
+		const material = new THREE.MeshPhongMaterial( {
+			color: new THREE.Color(1,0,0),
+			specular: new THREE.Color(1,1,1),
+			shininess:500
+		} );
+		var plane = new THREE.Mesh( PlGeom, material );
+		plane.position.set(5,0,0);
+		scene.add( plane );
+
+		var posX = -10;
+		var posY = 0;
+		var posZ = -10;
+		players.alive = 0;
+		createplayer(0.5,0.0,0.0, posX, posY, posZ,"player1");
+
+		posX = 10;
+		posZ = 10;
+		createplayer(0.0,0.0,0.5, posX, posY, posZ,"player2");
+
+        posX = 15;
+		posZ = -15;
+		createplayer(0.0,0.0,0.5, posX, posY, posZ,"player3");
+
+		$("#scene-section").append(renderer.domElement);
+	}
+
+    function pause()
+    {
+        if(!(Pause))
+        {
+            Pause = true;
+        }
+        else
+        {
+            Pause = false;
+        }
+        console.log(Pause);
+    }
+
+
+	</script>
+</head>
+
+<body>
+    <input type="button" value="Pause" onclick="pause()">
+	<div id="scene-section"/>
+
+</body>
+</html>

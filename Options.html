@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="css/Style.css"> 
+</head>
+<body>
+    <!--<audio src='assets/SonataArctica-SanSebastian.mp3'></audio>-->
+    <div id="Titulo">
+        <img src="css/Interfaz/Title.png" height="200px" width="400px">
+    </div>
+    <form action="Menu.html" method="post" id="Lista">
+        <div>        
+            <p>volumen de la musica</p>
+            <input type="range" id="volumen" min="0" max="100" name="volumen"><br>
+            <input type="image" src="css/Interfaz/Background.png" onclick="parent.location='Menu.html'">
+        </div>
+    </form>
+    <script type="text/javascript">    
+        const audioContext = new AudioContext();
+        const element = document.querySelector(audio);
+        const source = audioContext.createMediaElementSource(element);
+        source.connect(audioContext.destination)
+        audio.play();
+    </script>
+</body>
+</html>

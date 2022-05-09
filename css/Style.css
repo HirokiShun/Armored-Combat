@@ -1,0 +1,45 @@
+@font-face {
+    font-family: ArmyRust;
+    src: url("ARMY\ RUST.ttf");
+    
+}
+
+body
+{
+    background-image: url("Interfaz/BackImage.png");
+    background-repeat: no-repeat, repeat;
+    background-size: cover;
+    background-color: black;
+    font-family: 'ArmyRust';
+    color: white;
+    font-size: 35px;
+}
+
+input
+{
+    height: 100px;
+    width: 250px;
+
+    padding: 10px;
+}
+
+input:hover
+{
+    height: 150px;
+    width: 300px;
+    padding: 5px;
+}
+
+#Titulo
+{
+    padding-left: 550px;
+}
+
+#Botonera
+{
+    padding-left: 600px;
+}
+#Lista
+{
+    padding-left: 600px;
+}
